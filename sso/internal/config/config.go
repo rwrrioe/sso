@@ -10,7 +10,6 @@ import (
 
 type Config struct {
 	Env            string     `yaml:"env" env-default:"local"`
-	StoragePath    string     `yaml:"storage_ath"`
 	GRPC           GRPCConfig `yaml:"grpc"`
 	MigrationsPath string
 	TokenTTL       time.Duration
