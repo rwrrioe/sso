@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	ssov1 "github.com/GolangLessons/protos/gen/go/sso"
+	"github.com/rwrrioe/sso/internal/services/auth"
 	"github.com/rwrrioe/sso/internal/storage"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -29,6 +30,8 @@ type Auth interface {
 		email string,
 		passwords string,
 	) (userID int64, err error)
+
+	IsAdmin(ctx context.Context, userID int64) (bool, error)
 }
 
 func Register(gGRPCServer *grpc.Server) {
@@ -53,7 +56,7 @@ func (s *serverAPI) Login(
 
 	token, err := s.auth.Login(ctx, req.GetEmail(), req.GetPassword(), int(req.GetAppId()))
 	if err != nil {
-		if errors.Is(err, auth.ErrInvlidCredentials) {
+		if errors.Is(err, auth.ErrInvalidCredentials) {
 			return nil, status.Error(codes.InvalidArgument, "invalid email or password")
 		}
 
@@ -85,4 +88,23 @@ func (s *serverAPI) Register(
 	}
 
 	return &ssov1.RegisterResponse{UserId: uid}, nil
+}
+
+func (s *serverAPI) IsAdmin(
+	ctx context.Context,
+	in *ssov1.IsAdminRequest,
+) (*ssov1.IsAdminResponse, error) {
+	if in.UserId == 0 {
+		return nil, status.Error(codes.InvalidArgument, "user_id is empty")
+	}
+
+	isAdmin, err := s.auth.IsAdmin(ctx, in.UserId)
+	if err != nil {
+		if errors.Is(err, storage.ErrUserNotFound) {
+			return nil, status.Error(codes.NotFound, "user not found")
+		}
+		return nil, status.Error(codes.Internal, "failed to check whether the user is admin")
+	}
+
+	return &ssov1.IsAdminResponse{IsAdmin: isAdmin}, nil
 }
