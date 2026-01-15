@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	ssov1 "github.com/GolangLessons/protos/gen/go/sso"
 	"github.com/rwrrioe/sso/internal/services/auth"
 	"github.com/rwrrioe/sso/internal/storage"
+	ssov1 "github.com/rwrrioe/sso_protos/gen/go/sso"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
