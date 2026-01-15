@@ -3,7 +3,7 @@ package app
 import (
 	"log/slog"
 
-	grpcapp "github.com/rwrrioe/sso/internal/app/grpc"
+	"github.com/rwrrioe/sso/internal/app/grpc"
 )
 
 type App struct {
