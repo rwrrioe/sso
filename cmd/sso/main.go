@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"os"
+	"strconv"
+	"time"
 
 	"github.com/rwrrioe/sso/internal/app"
-	"github.com/rwrrioe/sso/internal/config"
 )
 
 const (
@@ -15,12 +17,28 @@ const (
 )
 
 func main() {
-	cfg := config.MustLoad()
-	log := setupLogger(cfg.Env)
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
 
-	log.Info("starting app", slog.Any("config", cfg))
-	application := app.New(log, cfg.GRPC.Port)
-	application.GRPCServer.Run()
+	env := os.Getenv("LOGGER_ENV")
+	portStr := os.Getenv("GRPC_PORT")
+	if portStr == "" {
+		portStr = "9081"
+	}
+
+	port, err := strconv.Atoi(portStr)
+	if err != nil || port <= 0 || port > 65535 {
+		panic("invalid GRPC_PORT: " + portStr)
+	}
+
+	log := setupLogger(env)
+
+	log.Info("starting app", slog.Any("env", env))
+	application := app.New(ctx, log, port, time.Minute)
+
+	if err := application.GRPCServer.Run(); err != nil {
+		panic(err)
+	}
 }
 
 func setupLogger(env string) *slog.Logger {
