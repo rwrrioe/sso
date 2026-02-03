@@ -1,4 +1,4 @@
-DROP TABLE IF EXISTS users;
-DROP TABLE IF EXISTS apps;
-DROP TABLE IF EXISTS roles;
-DROP TABLE IF EXISTS roles_users;
+DROP TABLE  users cascade;
+DROP TABLE apps cascade;
+DROP TABLE roles cascade;
+DROP TABLE roles_users cascade ;
