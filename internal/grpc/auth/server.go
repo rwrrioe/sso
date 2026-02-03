@@ -34,8 +34,8 @@ type Auth interface {
 	IsAdmin(ctx context.Context, userID int64) (bool, error)
 }
 
-func Register(gGRPCServer *grpc.Server) {
-	ssov1.RegisterAuthServer(gGRPCServer, &serverAPI{})
+func Register(gGRPCServer *grpc.Server, auth Auth) {
+	ssov1.RegisterAuthServer(gGRPCServer, &serverAPI{auth: auth})
 }
 
 func (s *serverAPI) Login(
