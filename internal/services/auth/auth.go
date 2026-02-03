@@ -10,7 +10,7 @@ import (
 	"github.com/rwrrioe/sso/internal/domain/models"
 	jwtlib "github.com/rwrrioe/sso/internal/lib/jwt"
 	"github.com/rwrrioe/sso/internal/lib/logger/sl"
-	storage "github.com/rwrrioe/sso/internal/storage"
+	"github.com/rwrrioe/sso/internal/storage"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -27,12 +27,12 @@ type UserSaver interface {
 }
 
 type UserProvider interface {
-	User(ctx context.Context, email string) (models.User, error)
+	User(ctx context.Context, email string) (*models.User, error)
 	IsAdmin(ctx context.Context, userID int64) (bool, error)
 }
 
 type AppProvider interface {
-	App(ctx context.Context, appID int) (models.App, error)
+	App(ctx context.Context, appID int) (*models.App, error)
 }
 
 type Auth struct {
@@ -119,18 +119,20 @@ func (a *Auth) Login(
 
 	app, err := a.appProvider.App(ctx, appID)
 	if err != nil {
+		a.log.Error("failed to find an appId", sl.Err(err))
 		return "", fmt.Errorf("%s: %w", op, err)
 	}
 
 	log.Info("user logged successfully")
 
-	token, err := jwtlib.NewToken(user, app, a.tokenTTL)
+	token, err := jwtlib.NewToken(*user, *app, a.tokenTTL)
 	if err != nil {
 		a.log.Error("failed to generate token", sl.Err(err))
 
 		return "", fmt.Errorf("%s: %w", op, err)
 	}
 
+	log.Info("token successfully returned")
 	return token, nil
 }
 
