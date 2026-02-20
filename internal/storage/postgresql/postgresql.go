@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/rwrrioe/sso/internal/domain/models"
@@ -33,19 +34,19 @@ func New(ctx context.Context) (*Storage, error) {
 	return &Storage{db: db}, nil
 }
 
-func (s *Storage) SaveUser(ctx context.Context, email string, passHash []byte) (int64, error) {
+func (s *Storage) SaveUser(ctx context.Context, email string, passHash []byte) (uuid.UUID, error) {
 	const op = "storage.postgresql.SaveUser"
 
-	var id int64
+	var id uuid.UUID
 	err := s.db.QueryRow(ctx,
 		"INSERT INTO users(email, pass_hash) VALUES ($1, $2) RETURNING id",
 		email, passHash).Scan(&id)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return 0, fmt.Errorf("%s:%w", op, storage.ErrUserExists)
+			return uuid.Nil, fmt.Errorf("%s:%w", op, storage.ErrUserExists)
 		}
-		return 0, fmt.Errorf("%s:%w", op, err)
+		return uuid.Nil, fmt.Errorf("%s:%w", op, err)
 	}
 
 	return id, nil
@@ -97,7 +98,7 @@ func (s *Storage) App(ctx context.Context, id int) (*models.App, error) {
 	return &app, nil
 }
 
-func (s *Storage) IsAdmin(ctx context.Context, userID int64) (bool, error) {
+func (s *Storage) IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error) {
 	const op = "storage.postgresql.IsAdmin"
 	var roleID int64
 
