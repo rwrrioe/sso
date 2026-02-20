@@ -3,10 +3,12 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/rwrrioe/sso/internal/services/auth"
 	"github.com/rwrrioe/sso/internal/storage"
-	ssov1 "github.com/rwrrioe/sso_protos/gen/go/sso"
+	ssov2 "github.com/rwrrioe/sso_protos/v2/gen/go/sso/sso"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -14,7 +16,7 @@ import (
 
 type serverAPI struct {
 	auth Auth
-	ssov1.UnimplementedAuthServer
+	ssov2.UnimplementedAuthServer
 }
 
 type Auth interface {
@@ -29,19 +31,19 @@ type Auth interface {
 		ctx context.Context,
 		email string,
 		passwords string,
-	) (userID int64, err error)
+	) (userID uuid.UUID, err error)
 
-	IsAdmin(ctx context.Context, userID int64) (bool, error)
+	IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error)
 }
 
 func Register(gGRPCServer *grpc.Server, auth Auth) {
-	ssov1.RegisterAuthServer(gGRPCServer, &serverAPI{auth: auth})
+	ssov2.RegisterAuthServer(gGRPCServer, &serverAPI{auth: auth})
 }
 
 func (s *serverAPI) Login(
 	ctx context.Context,
-	req *ssov1.LoginRequest,
-) (*ssov1.LoginResponse, error) {
+	req *ssov2.LoginRequest,
+) (*ssov2.LoginResponse, error) {
 	if req.Email == "" {
 		return nil, status.Error(codes.InvalidArgument, "email is required")
 	}
@@ -63,13 +65,13 @@ func (s *serverAPI) Login(
 		return nil, status.Error(codes.Internal, "failed to login")
 	}
 
-	return &ssov1.LoginResponse{Token: token}, nil
+	return &ssov2.LoginResponse{Token: token}, nil
 }
 
 func (s *serverAPI) Register(
 	ctx context.Context,
-	req *ssov1.RegisterRequest,
-) (*ssov1.RegisterResponse, error) {
+	req *ssov2.RegisterRequest,
+) (*ssov2.RegisterResponse, error) {
 	if req.Email == "" {
 		return nil, status.Error(codes.InvalidArgument, "email is required")
 	}
@@ -87,18 +89,25 @@ func (s *serverAPI) Register(
 		return nil, status.Error(codes.Internal, "failed to register user")
 	}
 
-	return &ssov1.RegisterResponse{UserId: uid}, nil
+	return &ssov2.RegisterResponse{UserId: uid.String()}, nil
 }
 
 func (s *serverAPI) IsAdmin(
 	ctx context.Context,
-	in *ssov1.IsAdminRequest,
-) (*ssov1.IsAdminResponse, error) {
-	if in.UserId == 0 {
+	in *ssov2.IsAdminRequest,
+) (*ssov2.IsAdminResponse, error) {
+	const op = "auth.serverAPI.IsAdmin"
+
+	if in.UserId == "" {
 		return nil, status.Error(codes.InvalidArgument, "user_id is empty")
 	}
 
-	isAdmin, err := s.auth.IsAdmin(ctx, in.UserId)
+	uid, err := uuid.Parse(in.UserId)
+	if err != nil {
+		return nil, fmt.Errorf("%s:%w", op, "failed to parse uid to uuid")
+	}
+
+	isAdmin, err := s.auth.IsAdmin(ctx, uid)
 	if err != nil {
 		if errors.Is(err, storage.ErrUserNotFound) {
 			return nil, status.Error(codes.NotFound, "user not found")
@@ -106,5 +115,5 @@ func (s *serverAPI) IsAdmin(
 		return nil, status.Error(codes.Internal, "failed to check whether the user is admin")
 	}
 
-	return &ssov1.IsAdminResponse{IsAdmin: isAdmin}, nil
+	return &ssov2.IsAdminResponse{IsAdmin: isAdmin}, nil
 }

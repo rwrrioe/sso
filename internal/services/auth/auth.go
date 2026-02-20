@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/rwrrioe/sso/internal/domain/models"
 	jwtlib "github.com/rwrrioe/sso/internal/lib/jwt"
 	"github.com/rwrrioe/sso/internal/lib/logger/sl"
@@ -23,12 +24,12 @@ type UserSaver interface {
 		ctx context.Context,
 		email string,
 		passHash []byte,
-	) (uid int64, err error)
+	) (uid uuid.UUID, err error)
 }
 
 type UserProvider interface {
 	User(ctx context.Context, email string) (*models.User, error)
-	IsAdmin(ctx context.Context, userID int64) (bool, error)
+	IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error)
 }
 
 type AppProvider interface {
@@ -59,7 +60,7 @@ func New(
 	}
 }
 
-func (a *Auth) RegisterNewUser(ctx context.Context, email string, password string) (int64, error) {
+func (a *Auth) RegisterNewUser(ctx context.Context, email string, password string) (uuid.UUID, error) {
 	const op = "Auth.RegisterNewUser"
 
 	log := a.log.With(
@@ -72,13 +73,13 @@ func (a *Auth) RegisterNewUser(ctx context.Context, email string, password strin
 	passHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		log.Error("failed to generate password hash", sl.Err(err))
-		return 0, fmt.Errorf("%s: %w", op, err)
+		return uuid.Nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	id, err := a.usrSaver.SaveUser(ctx, email, passHash)
 	if err != nil {
 		log.Error("failed to save user", sl.Err(err))
-		return 0, fmt.Errorf("%s: %w", op, err)
+		return uuid.Nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return id, nil
@@ -136,12 +137,12 @@ func (a *Auth) Login(
 	return token, nil
 }
 
-func (a *Auth) IsAdmin(ctx context.Context, userID int64) (bool, error) {
+func (a *Auth) IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error) {
 	const op = "Auth.IsAdmin"
 
 	log := a.log.With(
 		slog.String("op", op),
-		slog.Int64("user_id", userID),
+		slog.String("user_id", userID.String()),
 	)
 
 	log.Info("checking if user is admin")
