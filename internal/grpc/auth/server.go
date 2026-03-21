@@ -6,8 +6,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/rwrrioe/sso/internal/services/auth"
-	"github.com/rwrrioe/sso/internal/storage"
+	"github.com/rwrrioe/sso/internal/usecase/auth"
 	ssov2 "github.com/rwrrioe/sso_protos/v2/gen/go/sso/sso"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -82,7 +81,7 @@ func (s *serverAPI) Register(
 
 	uid, err := s.auth.RegisterNewUser(ctx, req.GetEmail(), req.GetPassword())
 	if err != nil {
-		if errors.Is(err, storage.ErrUserExists) {
+		if errors.Is(err, auth.ErrUserExists) {
 			return nil, status.Error(codes.AlreadyExists, "user already exists")
 		}
 
@@ -104,12 +103,12 @@ func (s *serverAPI) IsAdmin(
 
 	uid, err := uuid.Parse(in.UserId)
 	if err != nil {
-		return nil, fmt.Errorf("%s:%w", op, "failed to parse uid to uuid")
+		return nil, fmt.Errorf("%s:%s", op, "failed to parse uid to uuid")
 	}
 
 	isAdmin, err := s.auth.IsAdmin(ctx, uid)
 	if err != nil {
-		if errors.Is(err, storage.ErrUserNotFound) {
+		if errors.Is(err, auth.ErrUserNotFound) {
 			return nil, status.Error(codes.NotFound, "user not found")
 		}
 		return nil, status.Error(codes.Internal, "failed to check whether the user is admin")

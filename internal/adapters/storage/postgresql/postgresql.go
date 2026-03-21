@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/rwrrioe/sso/internal/domain/models"
-	"github.com/rwrrioe/sso/internal/storage"
+	"github.com/rwrrioe/sso/internal/usecase/auth"
 )
 
 type Storage struct {
@@ -47,7 +47,7 @@ func (s *Storage) SaveUser(
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return uuid.Nil, fmt.Errorf("%s:%w", op, storage.ErrUserExists)
+			return uuid.Nil, fmt.Errorf("%s:%w", op, auth.ErrUserExists)
 		}
 		return uuid.Nil, fmt.Errorf("%s:%w", op, err)
 	}
@@ -69,7 +69,7 @@ func (s *Storage) User(ctx context.Context, email string) (*models.User, error) 
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, fmt.Errorf("%s:%w", op, storage.ErrUserNotFound)
+			return nil, fmt.Errorf("%s:%w", op, auth.ErrUserNotFound)
 		}
 
 		return nil, fmt.Errorf("%s:%w", op, err)
@@ -93,7 +93,7 @@ func (s *Storage) App(ctx context.Context, id int) (*models.App, error) {
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, fmt.Errorf("%s:%w", op, storage.ErrAppNotFound)
+			return nil, fmt.Errorf("%s:%w", op, auth.ErrAppNotFound)
 		}
 		return nil, fmt.Errorf("%s:%w", op, err)
 	}
@@ -108,7 +108,7 @@ func (s *Storage) IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error) {
 	err := s.db.QueryRow(ctx, "SELECT role_id FROM roles_users WHERE user_id=$1", userID).Scan(&roleID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return false, fmt.Errorf("%s:%w", op, storage.ErrUserNotFound)
+			return false, fmt.Errorf("%s:%w", op, auth.ErrUserNotFound)
 		}
 		return false, fmt.Errorf("%s:%w", op, err)
 	}

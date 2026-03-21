@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/rwrrioe/sso/internal/adapters/storage/postgresql"
 	"github.com/rwrrioe/sso/internal/app/grpc"
-	"github.com/rwrrioe/sso/internal/services/auth"
-	"github.com/rwrrioe/sso/internal/storage/postgresql"
+	"github.com/rwrrioe/sso/internal/usecase/auth"
 )
 
 type App struct {
