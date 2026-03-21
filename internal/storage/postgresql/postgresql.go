@@ -34,7 +34,10 @@ func New(ctx context.Context) (*Storage, error) {
 	return &Storage{db: db}, nil
 }
 
-func (s *Storage) SaveUser(ctx context.Context, email string, passHash []byte) (uuid.UUID, error) {
+func (s *Storage) SaveUser(
+	ctx context.Context,
+	email string,
+	passHash []byte) (uuid.UUID, error) {
 	const op = "storage.postgresql.SaveUser"
 
 	var id uuid.UUID

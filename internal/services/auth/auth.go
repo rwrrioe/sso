@@ -60,7 +60,10 @@ func New(
 	}
 }
 
-func (a *Auth) RegisterNewUser(ctx context.Context, email string, password string) (uuid.UUID, error) {
+func (a *Auth) RegisterNewUser(
+	ctx context.Context,
+	email string,
+	password string) (uuid.UUID, error) {
 	const op = "Auth.RegisterNewUser"
 
 	log := a.log.With(
