@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/rwrrioe/sso/internal/domain/models"
@@ -29,9 +30,18 @@ type AppProvider interface {
 
 type CodeProvider interface {
 	//TODO polish reset code provider
-	SaveCode(ctx context.Context, code int) (int, error)
-	ResetCode(ctx context.Context, code int) (models.ResetCode, error)
-	MarkUsed(ctx context.Context, code int) error
+	SaveCode(
+		ctx context.Context,
+		code, uid string,
+		expiresAt time.Time,
+	) (string, error)
+
+	Code(
+		ctx context.Context,
+		code string,
+	) (*models.ResetCode, error)
+
+	MarkUsed(ctx context.Context, code string) error
 }
 
 type MailProvider interface {
