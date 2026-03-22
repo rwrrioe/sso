@@ -5,7 +5,9 @@ SSO service is a lightweight gRPC SSO authentication / authorization provider. F
 
 - Login / Register provider
 - IsAdmin, other roles provider (authz)
+- Password reset, email verification
 - Cookies, session, logout (to be added)
+  
 
 
 ## Quick start
