@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rwrrioe/sso/internal/domain/models"
 	jwtlib "github.com/rwrrioe/sso/internal/lib/jwt"
 	"github.com/rwrrioe/sso/internal/lib/logger/sl"
 	"golang.org/x/crypto/bcrypt"
@@ -18,24 +19,30 @@ var (
 	ErrUserNotFound       = errors.New("user not found")
 	ErrAppNotFound        = errors.New("app not found")
 	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrInvalidCode        = errors.New("invalid reset code")
-	ErrCodeExpired        = errors.New("reset code has expired")
-	ErrCodeAlreadyUsed    = errors.New("reset code was already used")
+
+	ErrTokenExpired = errors.New("token is expired")
+	ErrInvalidToken = errors.New("invalid token")
+
+	ErrInvalidCode     = errors.New("invalid reset code")
+	ErrCodeExpired     = errors.New("reset code has expired")
+	ErrCodeAlreadyUsed = errors.New("reset code was already used")
 )
 
-type AuthConfig struct {
-	tokenTTL time.Duration
-	codeTTL  time.Duration
+type Config struct {
+	accessTokenTTL  time.Duration
+	refreshTokenTTL time.Duration
+	codeTTL         time.Duration
 }
 
 type Auth struct {
-	log          *slog.Logger
-	config       *AuthConfig
-	usrSaver     UserSaver
-	usrProvider  UserProvider
-	appProvider  AppProvider
-	mailProvider MailProvider
-	codeProvider CodeProvider
+	log                  *slog.Logger
+	config               *Config
+	usrSaver             UserSaver
+	usrProvider          UserProvider
+	appProvider          AppProvider
+	mailProvider         MailProvider
+	codeProvider         CodeProvider
+	refreshTokenProvider RefreshTokenProvider
 }
 
 func New(
@@ -44,17 +51,19 @@ func New(
 	userProvider UserProvider,
 	appProvider AppProvider,
 	mailProvider MailProvider,
-	CodeProvider CodeProvider,
-	cfg *AuthConfig,
+	codeProvider CodeProvider,
+	refreshTokenProvider RefreshTokenProvider,
+	cfg *Config,
 ) *Auth {
 	return &Auth{
-		log:          log,
-		config:       cfg,
-		usrSaver:     userSaver,
-		usrProvider:  userProvider,
-		appProvider:  appProvider,
-		mailProvider: mailProvider,
-		codeProvider: CodeProvider,
+		log:                  log,
+		config:               cfg,
+		usrSaver:             userSaver,
+		usrProvider:          userProvider,
+		appProvider:          appProvider,
+		mailProvider:         mailProvider,
+		codeProvider:         codeProvider,
+		refreshTokenProvider: refreshTokenProvider,
 	}
 }
 
@@ -91,7 +100,7 @@ func (a *Auth) Login(
 	email string,
 	password string,
 	appID int,
-) (string, error) {
+) (*models.TokenPair, error) {
 	const op = "Auth.Login"
 
 	log := a.log.With(
@@ -105,66 +114,122 @@ func (a *Auth) Login(
 	if err != nil {
 		if errors.Is(err, ErrUserNotFound) {
 			a.log.Warn("user not found", sl.Err(err))
-			return "", fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
+			return nil, fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
 		}
 
 		a.log.Error("failed to get user", sl.Err(err))
 
-		return "", fmt.Errorf("%s: %w", op, err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	if err := bcrypt.CompareHashAndPassword(user.PassHash, []byte(password)); err != nil {
 		a.log.Info("invalid credentials", sl.Err(err))
 
-		return "", fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
+		return nil, fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
 	}
 
 	app, err := a.appProvider.App(ctx, appID)
 	if err != nil {
 		a.log.Error("failed to find an appId", sl.Err(err))
-		return "", fmt.Errorf("%s: %w", op, err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
 	log.Info("user logged successfully")
 
-	token, err := jwtlib.NewToken(*user, *app, a.config.tokenTTL)
+	token, err := jwtlib.NewToken(user.ID.String(), user.Email, *app, a.config.accessTokenTTL)
 	if err != nil {
 		a.log.Error("failed to generate token", sl.Err(err))
 
-		return "", fmt.Errorf("%s: %w", op, err)
+		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	log.Info("token successfully returned")
-	return token, nil
+	log.Info("access token successfully created")
+
+	// generate acc token
+
+	refToken := uuid.New().String()
+	if _, err := a.refreshTokenProvider.SaveRefreshToken(ctx, refToken, user.ID.String(), a.config.refreshTokenTTL); err != nil {
+		a.log.Error("failed to save refresh token")
+		return nil, fmt.Errorf("%s:%w", op, err)
+	}
+
+	log.Info("token pair successfully returned")
+	return &models.TokenPair{
+		AccessToken:  token,
+		RefreshToken: refToken,
+	}, nil
 }
 
-func (a *Auth) IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error) {
-	const op = "Auth.IsAdmin"
+// refresh token flow
+
+func (a *Auth) RegenerateToken(
+	ctx context.Context,
+	refreshToken string,
+) (*models.TokenPair, error) {
+	const op = "auth.RegenerateToken"
+
+	//validate ref token
+	refToken, err := a.refreshTokenProvider.RefreshToken(ctx, refreshToken)
+	if err != nil {
+		if errors.Is(err, ErrInvalidToken) {
+			return nil, fmt.Errorf("%s:%w", op, ErrInvalidToken)
+		}
+
+		return nil, fmt.Errorf("%s:%w", op, err)
+	}
+
+	if refToken.ExpirestAt.Before(time.Now()) {
+		return nil, fmt.Errorf("%s:%w", op, ErrTokenExpired)
+	}
 
 	log := a.log.With(
 		slog.String("op", op),
-		slog.String("user_id", userID.String()),
+		slog.String("email", refToken.Email),
 	)
 
-	log.Info("checking if user is admin")
-
-	isAdmin, err := a.usrProvider.IsAdmin(ctx, userID)
+	// get app for new acc token
+	app, err := a.appProvider.App(ctx, refToken.AppID)
 	if err != nil {
-		return false, fmt.Errorf("%s:%w", op, err)
+		return nil, fmt.Errorf("%s:%w", op, ErrAppNotFound)
 	}
 
-	log.Info("checked if user is admin", slog.Bool("is_admin", isAdmin))
+	// gen new tokens
+	token, err := jwtlib.NewToken(refToken.UserID, refToken.Email, *app, a.config.accessTokenTTL)
+	if err != nil {
+		a.log.Error("failed to generate token", sl.Err(err))
 
-	return isAdmin, nil
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	log.Info("access token successfully created")
+
+	if err := a.refreshTokenProvider.MarkUsed(ctx, refreshToken); err != nil {
+		log.Error("failed to mark old ref token used")
+		return nil, fmt.Errorf("%s:%w", op, err)
+	}
+
+	newRefToken := uuid.New().String()
+	if _, err := a.refreshTokenProvider.SaveRefreshToken(ctx, newRefToken, refToken.UserID, a.config.refreshTokenTTL); err != nil {
+		a.log.Error("failed to save refresh token")
+		return nil, fmt.Errorf("%s:%w", op, err)
+	}
+
+	log.Info("token pair successfully returned")
+	return &models.TokenPair{
+		AccessToken:  token,
+		RefreshToken: newRefToken,
+	}, nil
 }
+
+// reset password flow
 
 func (a *Auth) SendCode(ctx context.Context, email string) error {
 	const op = "auth.SendResetCode"
 	var code string
 
 	log := a.log.With(
-		slog.String("op:", op),
-		slog.String("code:", code),
+		slog.String("op", op),
+		slog.String("code", code),
 	)
 
 	uid, err := a.getUid(ctx, email)
@@ -195,8 +260,12 @@ func (a *Auth) VerifyCode(ctx context.Context, code string) error {
 
 	sendedCode, err := a.codeProvider.Code(ctx, code)
 
-	if errors.Is(err, ErrInvalidCode) {
-		return fmt.Errorf("%s:%w", op, ErrInvalidCode)
+	if err != nil {
+		if errors.Is(err, ErrInvalidCode) {
+			return fmt.Errorf("%s:%w", op, ErrInvalidCode)
+		}
+
+		return fmt.Errorf("%s:%w", op, err)
 	}
 
 	if sendedCode.Used {
@@ -265,4 +334,26 @@ func (a *Auth) getUid(ctx context.Context, email string) (uuid.UUID, error) {
 	}
 
 	return user.ID, nil
+}
+
+// authz
+
+func (a *Auth) IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error) {
+	const op = "Auth.IsAdmin"
+
+	log := a.log.With(
+		slog.String("op", op),
+		slog.String("user_id", userID.String()),
+	)
+
+	log.Info("checking if user is admin")
+
+	isAdmin, err := a.usrProvider.IsAdmin(ctx, userID)
+	if err != nil {
+		return false, fmt.Errorf("%s:%w", op, err)
+	}
+
+	log.Info("checked if user is admin", slog.Bool("is_admin", isAdmin))
+
+	return isAdmin, nil
 }

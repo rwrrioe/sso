@@ -47,3 +47,15 @@ type CodeProvider interface {
 type MailProvider interface {
 	SendCode(ctx context.Context, email, code string) error
 }
+
+type RefreshTokenProvider interface {
+	SaveRefreshToken(
+		ctx context.Context,
+		token, uid string,
+		expiresAt time.Duration,
+	) (string, error)
+
+	RefreshToken(ctx context.Context, token string) (models.RefreshToken, error)
+	DeleteToken(ctx context.Context, token string) error
+	MarkUsed(ctx context.Context, token string) error
+}
