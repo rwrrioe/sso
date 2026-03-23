@@ -7,12 +7,15 @@ import (
 	"github.com/rwrrioe/sso/internal/domain/models"
 )
 
-func NewToken(user models.User, app models.App, duration time.Duration) (string, error) {
+func NewToken(
+	uid, email string,
+	app models.App,
+	duration time.Duration) (string, error) {
 	token := jwt.New(jwt.SigningMethodHS256)
 
 	claims := token.Claims.(jwt.MapClaims)
-	claims["uid"] = user.ID
-	claims["email"] = user.Email
+	claims["uid"] = uid
+	claims["email"] = email
 	claims["exp"] = time.Now().Add(duration).Unix()
 	claims["app_id"] = app.ID
 
