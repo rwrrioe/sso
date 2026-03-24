@@ -35,8 +35,4 @@ docker build
 
 Our gRPC server calls Auth usecase. If it's register request, Auth calls repository and inserts credentials. We should add salt to our passHash before insertion. If it's login request, Auth compares hashes from user credentials and User DB. 
 
-## To be added
-
-- Logout
-- Cookies 
 
