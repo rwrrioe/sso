@@ -323,17 +323,18 @@ func (a *Auth) CreateNewPassword(ctx context.Context, email, password string) er
 	return nil
 }
 
-func (a *Auth) getUid(ctx context.Context, email string) (uuid.UUID, error) {
-	user, err := a.usrProvider.User(ctx, email)
-	if err != nil {
-		if errors.Is(err, ErrUserNotFound) {
-			return uuid.Nil, ErrUserNotFound
-		}
+// logout
 
-		return uuid.Nil, err
+func (a *Auth) Logout(ctx context.Context, refreshToken string) error {
+	const op = "auth.Logout"
+
+	if err := a.refreshTokenProvider.MarkUsed(ctx, refreshToken); err != nil {
+		a.log.Error("failed to mark old ref token used")
+		return fmt.Errorf("%s:%w", op, err)
 	}
 
-	return user.ID, nil
+	a.log.Info("logged out")
+	return nil
 }
 
 // authz
@@ -356,4 +357,19 @@ func (a *Auth) IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error) {
 	log.Info("checked if user is admin", slog.Bool("is_admin", isAdmin))
 
 	return isAdmin, nil
+}
+
+// helpers
+
+func (a *Auth) getUid(ctx context.Context, email string) (uuid.UUID, error) {
+	user, err := a.usrProvider.User(ctx, email)
+	if err != nil {
+		if errors.Is(err, ErrUserNotFound) {
+			return uuid.Nil, ErrUserNotFound
+		}
+
+		return uuid.Nil, err
+	}
+
+	return user.ID, nil
 }
