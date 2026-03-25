@@ -8,30 +8,16 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	domainerrors "github.com/rwrrioe/sso/internal/domain/errors"
 	"github.com/rwrrioe/sso/internal/domain/models"
 	jwtlib "github.com/rwrrioe/sso/internal/lib/jwt"
 	"github.com/rwrrioe/sso/internal/lib/logger/sl"
 	"golang.org/x/crypto/bcrypt"
 )
 
-var (
-	ErrUserExists         = errors.New("user already exists")
-	ErrUserNotFound       = errors.New("user not found")
-	ErrAppNotFound        = errors.New("app not found")
-	ErrInvalidCredentials = errors.New("invalid credentials")
-
-	ErrTokenExpired = errors.New("token is expired")
-	ErrInvalidToken = errors.New("invalid token")
-
-	ErrInvalidCode     = errors.New("invalid reset code")
-	ErrCodeExpired     = errors.New("reset code has expired")
-	ErrCodeAlreadyUsed = errors.New("reset code was already used")
-)
-
 type Config struct {
 	accessTokenTTL  time.Duration
 	refreshTokenTTL time.Duration
-	codeTTL         time.Duration
 }
 
 type Auth struct {
@@ -40,8 +26,6 @@ type Auth struct {
 	usrSaver             UserSaver
 	usrProvider          UserProvider
 	appProvider          AppProvider
-	mailProvider         MailProvider
-	codeProvider         CodeProvider
 	refreshTokenProvider RefreshTokenProvider
 }
 
@@ -50,8 +34,6 @@ func New(
 	userSaver UserSaver,
 	userProvider UserProvider,
 	appProvider AppProvider,
-	mailProvider MailProvider,
-	codeProvider CodeProvider,
 	refreshTokenProvider RefreshTokenProvider,
 	cfg *Config,
 ) *Auth {
@@ -61,8 +43,6 @@ func New(
 		usrSaver:             userSaver,
 		usrProvider:          userProvider,
 		appProvider:          appProvider,
-		mailProvider:         mailProvider,
-		codeProvider:         codeProvider,
 		refreshTokenProvider: refreshTokenProvider,
 	}
 }
@@ -112,9 +92,9 @@ func (a *Auth) Login(
 
 	user, err := a.usrProvider.User(ctx, email)
 	if err != nil {
-		if errors.Is(err, ErrUserNotFound) {
+		if errors.Is(err, domainerrors.ErrUserNotFound) {
 			a.log.Warn("user not found", sl.Err(err))
-			return nil, fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
+			return nil, fmt.Errorf("%s: %w", op, domainerrors.ErrInvalidCredentials)
 		}
 
 		a.log.Error("failed to get user", sl.Err(err))
@@ -125,7 +105,7 @@ func (a *Auth) Login(
 	if err := bcrypt.CompareHashAndPassword(user.PassHash, []byte(password)); err != nil {
 		a.log.Info("invalid credentials", sl.Err(err))
 
-		return nil, fmt.Errorf("%s: %w", op, ErrInvalidCredentials)
+		return nil, fmt.Errorf("%s: %w", op, domainerrors.ErrInvalidCredentials)
 	}
 
 	app, err := a.appProvider.App(ctx, appID)
@@ -171,15 +151,15 @@ func (a *Auth) RegenerateToken(
 	//validate ref token
 	refToken, err := a.refreshTokenProvider.RefreshToken(ctx, refreshToken)
 	if err != nil {
-		if errors.Is(err, ErrInvalidToken) {
-			return nil, fmt.Errorf("%s:%w", op, ErrInvalidToken)
+		if errors.Is(err, domainerrors.ErrInvalidToken) {
+			return nil, fmt.Errorf("%s:%w", op, domainerrors.ErrInvalidToken)
 		}
 
 		return nil, fmt.Errorf("%s:%w", op, err)
 	}
 
 	if refToken.ExpirestAt.Before(time.Now()) {
-		return nil, fmt.Errorf("%s:%w", op, ErrTokenExpired)
+		return nil, fmt.Errorf("%s:%w", op, domainerrors.ErrTokenExpired)
 	}
 
 	log := a.log.With(
@@ -190,7 +170,7 @@ func (a *Auth) RegenerateToken(
 	// get app for new acc token
 	app, err := a.appProvider.App(ctx, refToken.AppID)
 	if err != nil {
-		return nil, fmt.Errorf("%s:%w", op, ErrAppNotFound)
+		return nil, fmt.Errorf("%s:%w", op, domainerrors.ErrAppNotFound)
 	}
 
 	// gen new tokens
@@ -223,66 +203,6 @@ func (a *Auth) RegenerateToken(
 
 // reset password flow
 
-func (a *Auth) SendCode(ctx context.Context, email string) error {
-	const op = "auth.SendResetCode"
-	var code string
-
-	log := a.log.With(
-		slog.String("op", op),
-		slog.String("code", code),
-	)
-
-	uid, err := a.getUid(ctx, email)
-	if err != nil {
-		if errors.Is(err, ErrUserNotFound) {
-			return fmt.Errorf("%s:%w", op, ErrUserNotFound)
-		}
-
-		return fmt.Errorf("%s:%w", op, err)
-	}
-
-	expiresAt := time.Now().Add(a.config.codeTTL)
-	if _, err := a.codeProvider.SaveCode(ctx, code, uid.String(), expiresAt); err != nil {
-		log.Error("failed to save code", sl.Err(err))
-		return fmt.Errorf("%s:%w", op, err)
-	}
-
-	if err := a.mailProvider.SendCode(ctx, email, code); err != nil {
-		return fmt.Errorf("%s:%w", op, err)
-	}
-
-	log.Info("code was successfully sent", slog.String("code:", code))
-	return nil
-}
-
-func (a *Auth) VerifyCode(ctx context.Context, code string) error {
-	const op = "auth.VerifyResetCode"
-
-	sendedCode, err := a.codeProvider.Code(ctx, code)
-
-	if err != nil {
-		if errors.Is(err, ErrInvalidCode) {
-			return fmt.Errorf("%s:%w", op, ErrInvalidCode)
-		}
-
-		return fmt.Errorf("%s:%w", op, err)
-	}
-
-	if sendedCode.Used {
-		return fmt.Errorf("%s:%w", op, ErrCodeAlreadyUsed)
-	}
-
-	if sendedCode.ExpiresAt.Before(time.Now()) {
-		return fmt.Errorf("%s:%w", op, ErrCodeExpired)
-	}
-
-	if err := a.codeProvider.MarkUsed(ctx, code); err != nil {
-		return fmt.Errorf("%s:%w", op, err)
-	}
-
-	return nil
-}
-
 func (a *Auth) ResetPassword(ctx context.Context, email string) error {
 	const op = "auth.ResetPassword"
 
@@ -292,8 +212,8 @@ func (a *Auth) ResetPassword(ctx context.Context, email string) error {
 	)
 
 	if err := a.usrProvider.ResetPassword(ctx, email); err != nil {
-		if errors.Is(err, ErrUserNotFound) {
-			return fmt.Errorf("%s:%w", op, ErrUserNotFound)
+		if errors.Is(err, domainerrors.ErrUserNotFound) {
+			return fmt.Errorf("%s:%w", op, domainerrors.ErrUserNotFound)
 		}
 
 		return fmt.Errorf("%s:%w", op, err)
@@ -313,8 +233,8 @@ func (a *Auth) CreateNewPassword(ctx context.Context, email, password string) er
 	}
 
 	if err := a.usrProvider.SetNewPassword(ctx, email, passHash); err != nil {
-		if errors.Is(err, ErrUserNotFound) {
-			return fmt.Errorf("%s:%w", op, ErrUserNotFound)
+		if errors.Is(err, domainerrors.ErrUserNotFound) {
+			return fmt.Errorf("%s:%w", op, domainerrors.ErrUserNotFound)
 		}
 
 		return fmt.Errorf("%s:%w", op, err)
@@ -360,16 +280,3 @@ func (a *Auth) IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error) {
 }
 
 // helpers
-
-func (a *Auth) getUid(ctx context.Context, email string) (uuid.UUID, error) {
-	user, err := a.usrProvider.User(ctx, email)
-	if err != nil {
-		if errors.Is(err, ErrUserNotFound) {
-			return uuid.Nil, ErrUserNotFound
-		}
-
-		return uuid.Nil, err
-	}
-
-	return user.ID, nil
-}

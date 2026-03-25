@@ -28,26 +28,6 @@ type AppProvider interface {
 	App(ctx context.Context, appID int) (*models.App, error)
 }
 
-type CodeProvider interface {
-	//TODO polish reset code provider
-	SaveCode(
-		ctx context.Context,
-		code, uid string,
-		expiresAt time.Time,
-	) (string, error)
-
-	Code(
-		ctx context.Context,
-		code string,
-	) (*models.ResetCode, error)
-
-	MarkUsed(ctx context.Context, code string) error
-}
-
-type MailProvider interface {
-	SendCode(ctx context.Context, email, code string) error
-}
-
 type RefreshTokenProvider interface {
 	SaveRefreshToken(
 		ctx context.Context,
@@ -55,7 +35,7 @@ type RefreshTokenProvider interface {
 		expiresAt time.Duration,
 	) (string, error)
 
-	RefreshToken(ctx context.Context, token string) (models.RefreshToken, error)
+	RefreshToken(ctx context.Context, token string) (*models.RefreshToken, error)
 	DeleteToken(ctx context.Context, token string) error
 	MarkUsed(ctx context.Context, token string) error
 }
