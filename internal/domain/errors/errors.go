@@ -1,4 +1,4 @@
-package domainerrors
+package errors
 
 import "errors"
 
