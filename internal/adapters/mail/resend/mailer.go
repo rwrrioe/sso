@@ -6,7 +6,7 @@ import (
 	"log/slog"
 
 	"github.com/resend/resend-go/v3"
-	"github.com/rwrrioe/sso/internal/usecase/auth"
+	"github.com/rwrrioe/sso/internal/usecase/code"
 )
 
 const resendURL = "https://api.resend.com/emails"
@@ -15,6 +15,7 @@ type Options struct {
 	From    string
 	Name    string
 	Subject string
+	HTML    string
 }
 
 type ResendAPI struct {
@@ -27,7 +28,7 @@ func NewResendAPI(
 	log *slog.Logger,
 	options *Options,
 	apiKey string,
-) auth.MailProvider {
+) code.MailProvider {
 	cl := resend.NewClient(apiKey)
 
 	return &ResendAPI{
@@ -37,14 +38,15 @@ func NewResendAPI(
 	}
 }
 
-func (api *ResendAPI) SendCode(ctx context.Context, email, code string) error {
+func (api *ResendAPI) SendCode(
+	ctx context.Context, email, code string) error {
 	const op = "resend.SendCode"
 
 	params := &resend.SendEmailRequest{
 		From:    api.options.From,
 		To:      []string{email},
 		Subject: api.options.Subject,
-		Html:    "TODO add HTML",
+		Html:    fmt.Sprintf(api.options.HTML, code),
 	}
 
 	_, err := api.client.Emails.SendWithContext(ctx, params)
