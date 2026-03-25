@@ -6,8 +6,8 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	domainerrors "github.com/rwrrioe/sso/internal/domain/errors"
 	"github.com/rwrrioe/sso/internal/domain/models"
-	"github.com/rwrrioe/sso/internal/usecase/auth"
 )
 
 func (s *Storage) App(ctx context.Context, id int) (*models.App, error) {
@@ -25,7 +25,7 @@ func (s *Storage) App(ctx context.Context, id int) (*models.App, error) {
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, fmt.Errorf("%s:%w", op, auth.ErrAppNotFound)
+			return nil, fmt.Errorf("%s:%w", op, domainerrors.ErrAppNotFound)
 		}
 		return nil, fmt.Errorf("%s:%w", op, err)
 	}

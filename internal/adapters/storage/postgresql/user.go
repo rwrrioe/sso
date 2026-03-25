@@ -8,8 +8,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	domainerrors "github.com/rwrrioe/sso/internal/domain/errors"
 	"github.com/rwrrioe/sso/internal/domain/models"
-	"github.com/rwrrioe/sso/internal/usecase/auth"
 )
 
 func (s *Storage) SaveUser(
@@ -25,7 +25,7 @@ func (s *Storage) SaveUser(
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return uuid.Nil, fmt.Errorf("%s:%w", op, auth.ErrUserExists)
+			return uuid.Nil, fmt.Errorf("%s:%w", op, domainerrors.ErrUserExists)
 		}
 		return uuid.Nil, fmt.Errorf("%s:%w", op, err)
 	}
@@ -47,7 +47,7 @@ func (s *Storage) User(ctx context.Context, email string) (*models.User, error) 
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, fmt.Errorf("%s:%w", op, auth.ErrUserNotFound)
+			return nil, fmt.Errorf("%s:%w", op, domainerrors.ErrUserNotFound)
 		}
 
 		return nil, fmt.Errorf("%s:%w", op, err)
