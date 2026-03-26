@@ -27,8 +27,12 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/resend/resend-go/v3 v3.2.0 h1:jChLDFSLxKewNf6JEkxUyp/sJbaHBqd/NQfxCdXuVJk=
 github.com/resend/resend-go/v3 v3.2.0/go.mod h1:iI7VA0NoGjWvsNii5iNC5Dy0llsI3HncXPejhniYzwE=
-github.com/rwrrioe/sso_protos v0.0.0-20260220072734-89e3a333ae1c h1:mb0Z/d+94Qvg1+uiY733ldOBpV7A88IcP32LCMV3TDM=
-github.com/rwrrioe/sso_protos v0.0.0-20260220072734-89e3a333ae1c/go.mod h1:fnzHXOVIs9klWusmN69BTuwA/QAGU7NYMjC1RrZdrOw=
+github.com/rwrrioe/sso_protos v0.0.0-20260325121835-f55f4afe604a h1:BxghSTO0NMFKL64JgAwnHVGa1GPgHxZFY4F0xoghys0=
+github.com/rwrrioe/sso_protos v0.0.0-20260325121835-f55f4afe604a/go.mod h1:fnzHXOVIs9klWusmN69BTuwA/QAGU7NYMjC1RrZdrOw=
+github.com/rwrrioe/sso_protos v0.0.0-20260326082636-4b37499a9405 h1:2IvBAWacoFQYmDmnl3wFkHQvs3oVc48CKCEeuRt9+HY=
+github.com/rwrrioe/sso_protos v0.0.0-20260326082636-4b37499a9405/go.mod h1:fnzHXOVIs9klWusmN69BTuwA/QAGU7NYMjC1RrZdrOw=
+github.com/rwrrioe/sso_protos v0.0.0-20260326085202-1596040f6dac h1:n74yYS/gmLKh/WkSAUnLl2qOU21vtuTSQuXT+lrnIwM=
+github.com/rwrrioe/sso_protos v0.0.0-20260326085202-1596040f6dac/go.mod h1:fnzHXOVIs9klWusmN69BTuwA/QAGU7NYMjC1RrZdrOw=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
