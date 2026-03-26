@@ -14,27 +14,27 @@ import (
 
 func (s *Storage) SaveCode(
 	ctx context.Context,
-	code, uid string,
+	uid, codeHash string,
 	expiresAt time.Time,
-) (string, error) {
+) error {
 	const op = "storage.SaveCode"
 
 	var id uuid.UUID
 
 	err := s.db.QueryRow(ctx,
-		"INSERT INTO verification_codes(user_id, code, expires_at) VALUES ($1, $2, $3) RETURNING id",
-		uid, code, expiresAt).Scan(&id)
+		"INSERT INTO verification_codes(user_id, code_hash, expires_at) VALUES ($1, $2, $3) RETURNING id",
+		uid, codeHash, expiresAt).Scan(&id)
 
 	if err != nil {
-		return "", fmt.Errorf("%s:%w", op, err)
+		return fmt.Errorf("%s:%w", op, err)
 	}
 
-	return id.String(), nil
+	return nil
 }
 
 func (s *Storage) Code(
 	ctx context.Context,
-	code string) (*models.ResetCode, error) {
+	codeHash string) (*models.ResetCode, error) {
 	const op = "storage.Code"
 	var resetCode models.ResetCode
 
@@ -42,8 +42,8 @@ func (s *Storage) Code(
 		`SELECT code, user_id, expires_at, used 
 		FROM codes
 		WHERE code = $1 AND user_id=$2`,
-		code).Scan(
-		&resetCode.Code,
+		codeHash).Scan(
+		&resetCode.CodeHash,
 		&resetCode.ExpiresAt,
 		&resetCode.Used,
 	)
@@ -59,14 +59,14 @@ func (s *Storage) Code(
 	return &resetCode, nil
 }
 
-func (s *Storage) MarkUsed(ctx context.Context, code string) error {
+func (s *Storage) MarkUsed(ctx context.Context, codeHash string) error {
 	const op = "storage.MarkUsed"
 
 	res, err := s.db.Exec(ctx,
 		`UPDATE verification_codes 
 			SET used = TRUE
-			WHERE code=$1 
-			`, code)
+			WHERE code_hash=$1 
+			`, codeHash)
 
 	if res.RowsAffected() == 0 {
 		return fmt.Errorf("%s:%w", op, domainerrors.ErrInvalidCode)
