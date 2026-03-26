@@ -11,20 +11,24 @@ type CodeProvider interface {
 	//TODO polish reset code provider
 	SaveCode(
 		ctx context.Context,
-		code, uid string,
+		uid, codeHash string,
 		expiresAt time.Time,
-	) (string, error)
+	) error
 
 	Code(
 		ctx context.Context,
-		code string,
+		codeHash string,
 	) (*models.ResetCode, error)
 
-	MarkUsed(ctx context.Context, code string) error
+	MarkUsed(ctx context.Context, codeHash string) error
 }
 
 type MailProvider interface {
-	SendCode(ctx context.Context, email, code string) error
+	SendCode(
+		ctx context.Context,
+		email, code string,
+		codeType CodeType,
+	) error
 }
 
 type UserProvider interface {
