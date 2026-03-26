@@ -39,3 +39,14 @@ type RefreshTokenProvider interface {
 	DeleteToken(ctx context.Context, token string) error
 	MarkUsed(ctx context.Context, token string) error
 }
+
+type ResetTokenProvider interface {
+	SaveResetToken(
+		ctx context.Context,
+		token, email string,
+		expiresAt time.Duration,
+	) (string, error)
+
+	ResetToken(ctx context.Context, token string) (*models.ResetToken, error)
+	Markused(ctx context.Context, token string) error
+}

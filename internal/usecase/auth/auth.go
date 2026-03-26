@@ -18,6 +18,7 @@ import (
 type Config struct {
 	accessTokenTTL  time.Duration
 	refreshTokenTTL time.Duration
+	resetTokenTTL   time.Duration
 }
 
 type Auth struct {
@@ -27,6 +28,7 @@ type Auth struct {
 	usrProvider          UserProvider
 	appProvider          AppProvider
 	refreshTokenProvider RefreshTokenProvider
+	resetTokenProvider   ResetTokenProvider
 }
 
 func New(
@@ -35,6 +37,7 @@ func New(
 	userProvider UserProvider,
 	appProvider AppProvider,
 	refreshTokenProvider RefreshTokenProvider,
+	resetTokenProvider ResetTokenProvider,
 	cfg *Config,
 ) *Auth {
 	return &Auth{
@@ -44,6 +47,7 @@ func New(
 		usrProvider:          userProvider,
 		appProvider:          appProvider,
 		refreshTokenProvider: refreshTokenProvider,
+		resetTokenProvider:   resetTokenProvider,
 	}
 }
 
@@ -203,29 +207,44 @@ func (a *Auth) RegenerateToken(
 
 // reset password flow
 
-func (a *Auth) ResetPassword(ctx context.Context, email string) error {
-	const op = "auth.ResetPassword"
+func (a *Auth) GenerateResetToken(
+	ctx context.Context,
+	email string,
+) (string, error) {
+	const op = "auth.GenerateResetToken"
 
 	log := a.log.With(
 		slog.String("op", op),
 		slog.String("email", email),
 	)
 
-	if err := a.usrProvider.ResetPassword(ctx, email); err != nil {
-		if errors.Is(err, domainerrors.ErrUserNotFound) {
-			return fmt.Errorf("%s:%w", op, domainerrors.ErrUserNotFound)
-		}
+	resToken := uuid.New().String()
+	if _, err := a.resetTokenProvider.SaveResetToken(ctx, resToken, email, a.config.resetTokenTTL); err != nil {
+		a.log.Error("failed to save reset token")
+		return "", fmt.Errorf("%s:%w", op, err)
+	}
 
+	log.Info("reset token successfully generated")
+	return resToken, nil
+}
+
+func (a *Auth) CreateNewPassword(
+	ctx context.Context,
+	resetToken, password, email string) error {
+
+	const op = "auth.CreateNewPassword"
+
+	log := a.log.With(
+		slog.String("op", op),
+		slog.String("email", email),
+	)
+
+	// validate resetToken
+	if err := a.validateResetToken(ctx, resetToken, email); err != nil {
 		return fmt.Errorf("%s:%w", op, err)
 	}
 
-	log.Info("user password was successfully reset")
-	return nil
-}
-
-func (a *Auth) CreateNewPassword(ctx context.Context, email, password string) error {
-	const op = "auth.CreateNewPassword"
-
+	// set new password
 	passHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		a.log.Error("failed to generate password hash", sl.Err(err))
@@ -240,6 +259,7 @@ func (a *Auth) CreateNewPassword(ctx context.Context, email, password string) er
 		return fmt.Errorf("%s:%w", op, err)
 	}
 
+	log.Info("new password successfully created")
 	return nil
 }
 
@@ -280,3 +300,32 @@ func (a *Auth) IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error) {
 }
 
 // helpers
+
+func (a *Auth) validateResetToken(
+	ctx context.Context,
+	resetToken, email string) error {
+	const op = "auth.validateResetToken"
+
+	token, err := a.resetTokenProvider.ResetToken(ctx, resetToken)
+	if err != nil {
+		if errors.Is(err, domainerrors.ErrInvalidToken) {
+			return fmt.Errorf("%s:%w", op, domainerrors.ErrInvalidResetToken)
+		}
+
+		return fmt.Errorf("%s:%w", op, err)
+	}
+
+	if token.Used {
+		return fmt.Errorf("%s:%w", op, domainerrors.ErrResetTokenAlreadyUsed)
+	}
+
+	if token.ExpiresAt.Before(time.Now()) {
+		return fmt.Errorf("%s:%w", op, domainerrors.ErrResetTokenExpired)
+	}
+
+	if token.Email != email {
+		return fmt.Errorf("%s:%w", op, domainerrors.ErrInvalidResetToken)
+	}
+
+	return nil
+}
