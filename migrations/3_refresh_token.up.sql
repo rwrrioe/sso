@@ -3,18 +3,18 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE IF NOT EXISTS refresh_tokens (
-    id UUID DEFAULT gen_random_uuid(),
+    token UUID DEFAULT gen_random_uuid(),
     user_id UUID,
     email VARCHAR(320),
     app_id INT,
     expires_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT NOW(),
 
-    CONSTRAINT pk_refresh_tokens PRIMARY KEY(id),
+    CONSTRAINT pk_refresh_tokens PRIMARY KEY(token),
     CONSTRAINT fk_refresh_tokens_users FOREIGN KEY REFERENCES users(id),
     CONSTRAINT fk_refresh_tokens_apps FOREIGN KEY REFERENCES apps(id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_refresh_token ON refresh_tokens(id);
+CREATE INDEX IF NOT EXISTS idx_refresh_token ON refresh_tokens(token);
 
 COMMIT;
