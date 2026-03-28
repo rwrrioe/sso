@@ -20,12 +20,13 @@ func New(
 	log *slog.Logger,
 	port int,
 	authService authgrpc.Auth,
+	codeService authgrpc.Code,
 ) *App {
 	gRPCServer := grpc.NewServer(grpc.ChainUnaryInterceptor(
 		recovery.UnaryServerInterceptor(),
 	))
 
-	authgrpc.Register(gRPCServer, authService)
+	authgrpc.Register(gRPCServer, authService, codeService)
 
 	return &App{
 		log:        log,
