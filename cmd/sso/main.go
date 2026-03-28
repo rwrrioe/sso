@@ -4,10 +4,13 @@ import (
 	"context"
 	"log/slog"
 	"os"
-	"strconv"
-	"time"
 
+	"github.com/rwrrioe/sso/internal/adapters/mail/resend"
+	redisstorage "github.com/rwrrioe/sso/internal/adapters/redis"
 	"github.com/rwrrioe/sso/internal/app"
+	"github.com/rwrrioe/sso/internal/config"
+	"github.com/rwrrioe/sso/internal/usecase/auth"
+	"github.com/rwrrioe/sso/internal/usecase/code"
 )
 
 const (
@@ -20,21 +23,12 @@ func main() {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
-	env := os.Getenv("LOGGER_ENV")
-	portStr := os.Getenv("GRPC_PORT")
-	if portStr == "" {
-		portStr = "9081"
-	}
+	cfg := config.MustLoad()
+	log := setupLogger(cfg.LoggerType)
 
-	port, err := strconv.Atoi(portStr)
-	if err != nil || port <= 0 || port > 65535 {
-		panic("invalid GRPC_PORT: " + portStr)
-	}
-
-	log := setupLogger(env)
-
-	log.Info("starting app", slog.Any("env", env))
-	application := app.New(ctx, log, port, time.Minute)
+	log.Info("starting app", slog.Any("port", cfg.GRPCPort))
+	appCfg := setupAppConfig(cfg)
+	application := app.New(ctx, log, appCfg)
 
 	if err := application.GRPCServer.Run(); err != nil {
 		panic(err)
@@ -60,4 +54,33 @@ func setupLogger(env string) *slog.Logger {
 	}
 
 	return log
+}
+
+func setupAppConfig(cfg *config.Config) *app.Config {
+	return &app.Config{
+		GRPCPort: cfg.GRPCPort,
+
+		Redis: &redisstorage.Config{
+			Address:  cfg.Redis.Address,
+			Password: cfg.Redis.Password,
+			DB:       cfg.Redis.DB,
+			Protocol: cfg.Redis.Protocol,
+		},
+
+		Resend: &resend.Config{
+			From: cfg.Resend.From,
+			Name: cfg.Resend.Name,
+		},
+
+		Auth: &auth.Config{
+			AccessTokenTTL:  cfg.Auth.AccessTokenTTL,
+			RefreshTokenTTL: cfg.Auth.RefreshTokenTTL,
+			ResetTokenTTL:   cfg.Auth.ResetTokenTTL,
+		},
+
+		Code: &code.Config{
+			CodeTTL: cfg.Code.CodeTTL,
+		},
+	}
+
 }
