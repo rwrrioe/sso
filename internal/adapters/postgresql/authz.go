@@ -12,7 +12,7 @@ import (
 )
 
 func (s *Storage) IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error) {
-	const op = "storage.postgresql.IsAdmin"
+	const op = "postgresql.IsAdmin"
 	var roleID int64
 
 	err := s.db.QueryRow(ctx, "SELECT role_id FROM roles_users WHERE user_id=$1", userID).Scan(&roleID)
