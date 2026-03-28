@@ -24,12 +24,12 @@ const (
 	Type2FACode               CodeType = "2FA code"
 )
 
-// options - for every send code call
+// Options  - for every send code call
 type Options struct {
 	CodeType CodeType
 }
 
-// config - for usecase
+// Config - for usecase
 type Config struct {
 	codeTTL time.Duration
 }
@@ -44,10 +44,10 @@ type Code struct {
 
 func New(
 	log *slog.Logger,
-	config *Config,
 	codeProvider CodeProvider,
 	mailProvider MailProvider,
 	usrProvider UserProvider,
+	config *Config,
 ) *Code {
 	return &Code{
 		log:          log,
@@ -82,8 +82,7 @@ func (c *Code) SendCode(
 
 	codeHash := hashCode(code)
 
-	expiresAt := time.Now().Add(c.config.codeTTL)
-	if err := c.codeProvider.SaveCode(ctx, uid.String(), codeHash, expiresAt); err != nil {
+	if err := c.codeProvider.SaveCode(ctx, uid.String(), codeHash, c.config.codeTTL); err != nil {
 		log.Error("failed to save code", sl.Err(err))
 		return fmt.Errorf("%s:%w", op, err)
 	}
@@ -116,11 +115,10 @@ func (c *Code) VerifyCode(ctx context.Context, code string) error {
 		return fmt.Errorf("%s:%w", op, domainerrors.ErrCodeAlreadyUsed)
 	}
 
-	if sentCode.ExpiresAt.Before(time.Now()) {
-		return fmt.Errorf("%s:%w", op, domainerrors.ErrCodeExpired)
-	}
-
-	if err := c.codeProvider.MarkUsed(ctx, codeHash); err != nil {
+	if err := c.codeProvider.MarkCodeUsed(
+		ctx,
+		codeHash,
+		c.config.codeTTL); err != nil {
 		return fmt.Errorf("%s:%w", op, err)
 	}
 
