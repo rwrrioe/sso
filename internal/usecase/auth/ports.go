@@ -20,7 +20,6 @@ type UserProvider interface {
 	User(ctx context.Context, email string) (*models.User, error)
 	IsAdmin(ctx context.Context, userID uuid.UUID) (bool, error)
 
-	ResetPassword(ctx context.Context, email string) error
 	SetNewPassword(ctx context.Context, email string, passHash []byte) error
 }
 
@@ -32,6 +31,7 @@ type RefreshTokenProvider interface {
 	SaveRefreshToken(
 		ctx context.Context,
 		token, uid string,
+		appID int,
 		expiresAt time.Duration,
 	) (string, error)
 
@@ -44,9 +44,13 @@ type ResetTokenProvider interface {
 	SaveResetToken(
 		ctx context.Context,
 		token, email string,
-		expiresAt time.Duration,
-	) (string, error)
+		ttl time.Duration,
+	) error
 
-	ResetToken(ctx context.Context, token string) (*models.ResetToken, error)
-	Markused(ctx context.Context, token string) error
+	ResetToken(
+		ctx context.Context,
+		token string,
+	) (*models.ResetToken, error)
+
+	MarkResetTokenUsed(ctx context.Context, token string) error
 }

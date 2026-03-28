@@ -12,7 +12,7 @@ type CodeProvider interface {
 	SaveCode(
 		ctx context.Context,
 		uid, codeHash string,
-		expiresAt time.Time,
+		ttl time.Duration,
 	) error
 
 	Code(
@@ -20,7 +20,11 @@ type CodeProvider interface {
 		codeHash string,
 	) (*models.ResetCode, error)
 
-	MarkUsed(ctx context.Context, codeHash string) error
+	MarkCodeUsed(
+		ctx context.Context,
+		codeHash string,
+		ttl time.Duration,
+	) error
 }
 
 type MailProvider interface {
