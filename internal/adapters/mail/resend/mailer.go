@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 
 	"github.com/resend/resend-go/v3"
 	"github.com/rwrrioe/sso/internal/usecase/code"
@@ -11,27 +12,28 @@ import (
 
 const resendURL = "https://api.resend.com/emails"
 
-type Options struct {
+type Config struct {
 	From string
 	Name string
 }
 
 type ResendAPI struct {
 	log     *slog.Logger
-	options *Options
+	options *Config
 	client  *resend.Client
 }
 
 func New(
 	log *slog.Logger,
-	options *Options,
-	apiKey string,
+	cfg *Config,
 ) code.MailProvider {
+	apiKey := os.Getenv("RESEND_API_KEY")
+
 	cl := resend.NewClient(apiKey)
 
 	return &ResendAPI{
 		log:     log,
-		options: options,
+		options: cfg,
 		client:  cl,
 	}
 }
