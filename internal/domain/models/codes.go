@@ -3,7 +3,8 @@ package models
 import "time"
 
 type ResetCode struct {
-	Code      string
-	ExpiresAt time.Time
-	Used      bool
+	UserID   string
+	CodeHash string
+	TTL      time.Duration
+	Used     bool
 }
