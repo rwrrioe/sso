@@ -13,16 +13,14 @@ import (
 )
 
 type Config struct {
-	APIKey      string
-	GRPCPort    int
-	PostgresDSN string
+	GRPCPort int
 
-	Redis redisstorage.Config
+	Redis *redisstorage.Config
 
-	Resend resendAPI.Options
+	Resend *resendAPI.Config
 
-	Auth auth.Config
-	Code code.Config
+	Auth *auth.Config
+	Code *code.Config
 }
 
 type App struct {
@@ -39,16 +37,12 @@ func New(
 		panic(err)
 	}
 
-	redisStorage, err := redisstorage.New(log, &cfg.Redis)
+	redisStorage, err := redisstorage.New(log, cfg.Redis)
 	if err != nil {
 		panic(err)
 	}
 
-	mailer := resendAPI.New(
-		log,
-		&cfg.Resend,
-		cfg.APIKey,
-	)
+	mailer := resendAPI.New(log, cfg.Resend)
 
 	authService := auth.New(
 		log,
@@ -57,7 +51,7 @@ func New(
 		postgresStorage,
 		postgresStorage,
 		redisStorage,
-		&cfg.Auth,
+		cfg.Auth,
 	)
 
 	codeService := code.New(
@@ -65,7 +59,7 @@ func New(
 		redisStorage,
 		mailer,
 		postgresStorage,
-		&cfg.Code,
+		cfg.Code,
 	)
 
 	grpcApp := grpcapp.New(
