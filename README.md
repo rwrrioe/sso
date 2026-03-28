@@ -1,4 +1,4 @@
-[![Go Report Card](https://goreportcard.com/badge/github.com/rwrrioe/sso)](https://goreportcard.com/report/github.com/rwrrioe/sso)&nbsp;&nbsp;&nbsp;&nbsp;[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go Report Card](https://goreportcard.com/badge/github.com/rwrrioe/sso)](https://goreportcard.com/report/github.com/rwrrioe/sso)&nbsp;[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 
 ## About
