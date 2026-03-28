@@ -232,10 +232,6 @@ func (s *serverAPI) CreateNewPassword(
 			return nil, status.Error(codes.InvalidArgument, "invalid reset token")
 		}
 
-		if errors.Is(err, domainerrors.ErrResetTokenExpired) {
-			return nil, status.Error(codes.InvalidArgument, "reset token expired ")
-		}
-
 		if errors.Is(err, domainerrors.ErrResetTokenAlreadyUsed) {
 			return nil, status.Error(codes.InvalidArgument, "reset token already used")
 		}
