@@ -16,9 +16,9 @@ import (
 )
 
 type Config struct {
-	accessTokenTTL  time.Duration
-	refreshTokenTTL time.Duration
-	resetTokenTTL   time.Duration
+	AccessTokenTTL  time.Duration
+	RefreshTokenTTL time.Duration
+	ResetTokenTTL   time.Duration
 }
 
 type Auth struct {
@@ -120,7 +120,7 @@ func (a *Auth) Login(
 
 	log.Info("user logged successfully")
 
-	token, err := jwtlib.NewToken(user.ID.String(), user.Email, *app, a.config.accessTokenTTL)
+	token, err := jwtlib.NewToken(user.ID.String(), user.Email, *app, a.config.AccessTokenTTL)
 	if err != nil {
 		a.log.Error("failed to generate token", sl.Err(err))
 
@@ -137,7 +137,7 @@ func (a *Auth) Login(
 		refToken,
 		user.ID.String(),
 		appID,
-		a.config.refreshTokenTTL); err != nil {
+		a.config.RefreshTokenTTL); err != nil {
 		a.log.Error("failed to save refresh token")
 		return nil, fmt.Errorf("%s:%w", op, err)
 	}
@@ -183,7 +183,7 @@ func (a *Auth) RegenerateToken(
 	}
 
 	// gen new tokens
-	token, err := jwtlib.NewToken(refToken.UserID, refToken.Email, *app, a.config.accessTokenTTL)
+	token, err := jwtlib.NewToken(refToken.UserID, refToken.Email, *app, a.config.AccessTokenTTL)
 	if err != nil {
 		a.log.Error("failed to generate token", sl.Err(err))
 
@@ -203,7 +203,7 @@ func (a *Auth) RegenerateToken(
 		newRefToken,
 		refToken.UserID,
 		refToken.AppID,
-		a.config.refreshTokenTTL); err != nil {
+		a.config.RefreshTokenTTL); err != nil {
 		a.log.Error("failed to save refresh token")
 		return nil, fmt.Errorf("%s:%w", op, err)
 	}
@@ -229,7 +229,7 @@ func (a *Auth) GenerateResetToken(
 	)
 
 	resToken := uuid.New().String()
-	if err := a.resetTokenProvider.SaveResetToken(ctx, resToken, email, a.config.resetTokenTTL); err != nil {
+	if err := a.resetTokenProvider.SaveResetToken(ctx, resToken, email, a.config.ResetTokenTTL); err != nil {
 		a.log.Error("failed to save reset token")
 		return "", fmt.Errorf("%s:%w", op, err)
 	}

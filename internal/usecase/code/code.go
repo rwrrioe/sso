@@ -31,7 +31,7 @@ type Options struct {
 
 // Config - for usecase
 type Config struct {
-	codeTTL time.Duration
+	CodeTTL time.Duration
 }
 
 type Code struct {
@@ -82,7 +82,7 @@ func (c *Code) SendCode(
 
 	codeHash := hashCode(code)
 
-	if err := c.codeProvider.SaveCode(ctx, uid.String(), codeHash, c.config.codeTTL); err != nil {
+	if err := c.codeProvider.SaveCode(ctx, uid.String(), codeHash, c.config.CodeTTL); err != nil {
 		log.Error("failed to save code", sl.Err(err))
 		return fmt.Errorf("%s:%w", op, err)
 	}
@@ -118,7 +118,7 @@ func (c *Code) VerifyCode(ctx context.Context, code string) error {
 	if err := c.codeProvider.MarkCodeUsed(
 		ctx,
 		codeHash,
-		c.config.codeTTL); err != nil {
+		c.config.CodeTTL); err != nil {
 		return fmt.Errorf("%s:%w", op, err)
 	}
 
