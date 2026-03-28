@@ -12,10 +12,8 @@ import (
 const resendURL = "https://api.resend.com/emails"
 
 type Options struct {
-	From    string
-	Name    string
-	Subject string
-	HTML    string
+	From string
+	Name string
 }
 
 type ResendAPI struct {
@@ -24,7 +22,7 @@ type ResendAPI struct {
 	client  *resend.Client
 }
 
-func NewResendAPI(
+func New(
 	log *slog.Logger,
 	options *Options,
 	apiKey string,
@@ -39,14 +37,17 @@ func NewResendAPI(
 }
 
 func (api *ResendAPI) SendCode(
-	ctx context.Context, email, code string) error {
+	ctx context.Context,
+	email, code string,
+	codeType code.CodeType,
+) error {
 	const op = "resend.SendCode"
 
 	params := &resend.SendEmailRequest{
 		From:    api.options.From,
 		To:      []string{email},
-		Subject: api.options.Subject,
-		Html:    fmt.Sprintf(api.options.HTML, code),
+		Subject: templates[codeType].Subject,
+		Html:    fmt.Sprintf(templates[codeType].HTML, code),
 	}
 
 	_, err := api.client.Emails.SendWithContext(ctx, params)
@@ -56,4 +57,24 @@ func (api *ResendAPI) SendCode(
 	}
 
 	return nil
+}
+
+type MailTemplate struct {
+	Subject string
+	HTML    string
+}
+
+var templates = map[code.CodeType]MailTemplate{
+	code.TypeResetCode: {
+		Subject: "Password Reset",
+		HTML:    "<p>Your reset code: <b>%s</b></p>",
+	},
+	code.TypeEmailVerificationCode: {
+		Subject: "Email Verification",
+		HTML:    "<p>Your verification code: <b>%s</b></p>",
+	},
+	code.Type2FACode: {
+		Subject: "Two-Factor Authentication",
+		HTML:    "<p>Your 2FA code: <b>%s</b></p>",
+	},
 }
