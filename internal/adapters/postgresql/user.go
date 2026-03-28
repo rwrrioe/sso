@@ -16,7 +16,7 @@ func (s *Storage) SaveUser(
 	ctx context.Context,
 	email string,
 	passHash []byte) (uuid.UUID, error) {
-	const op = "storage.postgresql.SaveUser"
+	const op = "postgresql.SaveUser"
 
 	var id uuid.UUID
 	err := s.db.QueryRow(ctx,
@@ -34,7 +34,7 @@ func (s *Storage) SaveUser(
 }
 
 func (s *Storage) User(ctx context.Context, email string) (*models.User, error) {
-	const op = "storage.postgresql.User"
+	const op = "postgresql.User"
 	var user models.User
 
 	err := s.db.QueryRow(ctx,
@@ -54,4 +54,26 @@ func (s *Storage) User(ctx context.Context, email string) (*models.User, error) 
 	}
 
 	return &user, nil
+}
+
+func (s *Storage) SetNewPassword(
+	ctx context.Context,
+	email string,
+	passHash []byte) error {
+
+	const op = "postgresql.SetNewPassword"
+
+	val, err := s.db.Exec(ctx,
+		"UPDATE TABLE users WHERE email=$1 SET pass_hash=$2",
+		email, passHash)
+	if err != nil {
+		return fmt.Errorf("%s:%w", op, err)
+
+	}
+
+	if val.RowsAffected() == 0 {
+		return fmt.Errorf("%s:%w", op, domainerrors.ErrUserNotFound)
+	}
+
+	return nil
 }

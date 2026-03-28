@@ -11,7 +11,7 @@ import (
 )
 
 func (s *Storage) App(ctx context.Context, id int) (*models.App, error) {
-	const op = "storage.postgresql.App"
+	const op = "postgresql.App"
 
 	var app models.App
 
