@@ -8,9 +8,16 @@ type TokenPair struct {
 }
 
 type RefreshToken struct {
-	ID         string
+	Token      string
 	UserID     string
 	Email      string
 	AppID      int
 	ExpirestAt time.Time
+}
+
+type ResetToken struct {
+	Token string
+	Email string
+	Used  bool
+	TTL   time.Duration
 }
