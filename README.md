@@ -1,5 +1,5 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/rwrrioe/sso)](https://goreportcard.com/report/github.com/rwrrioe/sso)&nbsp;[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
+[![GitHub tag](https://img.shields.io/github/v/tag/rwrrioe/sso?label=version)](https://github.com/rwrrioe/sso/releases)
 
 ## About
 
