@@ -11,6 +11,9 @@ var (
 	ErrTokenExpired = errors.New("token is expired")
 	ErrInvalidToken = errors.New("invalid token")
 
+	ErrInvalidResetToken     = errors.New("invalid reset token")
+	ErrResetTokenAlreadyUsed = errors.New("reset token already used")
+
 	ErrInvalidCode     = errors.New("invalid reset code")
 	ErrCodeExpired     = errors.New("reset code has expired")
 	ErrCodeAlreadyUsed = errors.New("reset code was already used")
