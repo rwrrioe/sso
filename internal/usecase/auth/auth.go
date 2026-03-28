@@ -132,7 +132,12 @@ func (a *Auth) Login(
 	// generate acc token
 
 	refToken := uuid.New().String()
-	if _, err := a.refreshTokenProvider.SaveRefreshToken(ctx, refToken, user.ID.String(), a.config.refreshTokenTTL); err != nil {
+	if _, err := a.refreshTokenProvider.SaveRefreshToken(
+		ctx,
+		refToken,
+		user.ID.String(),
+		appID,
+		a.config.refreshTokenTTL); err != nil {
 		a.log.Error("failed to save refresh token")
 		return nil, fmt.Errorf("%s:%w", op, err)
 	}
@@ -193,7 +198,12 @@ func (a *Auth) RegenerateToken(
 	}
 
 	newRefToken := uuid.New().String()
-	if _, err := a.refreshTokenProvider.SaveRefreshToken(ctx, newRefToken, refToken.UserID, a.config.refreshTokenTTL); err != nil {
+	if _, err := a.refreshTokenProvider.SaveRefreshToken(
+		ctx,
+		newRefToken,
+		refToken.UserID,
+		refToken.AppID,
+		a.config.refreshTokenTTL); err != nil {
 		a.log.Error("failed to save refresh token")
 		return nil, fmt.Errorf("%s:%w", op, err)
 	}
@@ -219,7 +229,7 @@ func (a *Auth) GenerateResetToken(
 	)
 
 	resToken := uuid.New().String()
-	if _, err := a.resetTokenProvider.SaveResetToken(ctx, resToken, email, a.config.resetTokenTTL); err != nil {
+	if err := a.resetTokenProvider.SaveResetToken(ctx, resToken, email, a.config.resetTokenTTL); err != nil {
 		a.log.Error("failed to save reset token")
 		return "", fmt.Errorf("%s:%w", op, err)
 	}
@@ -317,10 +327,6 @@ func (a *Auth) validateResetToken(
 
 	if token.Used {
 		return fmt.Errorf("%s:%w", op, domainerrors.ErrResetTokenAlreadyUsed)
-	}
-
-	if token.ExpiresAt.Before(time.Now()) {
-		return fmt.Errorf("%s:%w", op, domainerrors.ErrResetTokenExpired)
 	}
 
 	if token.Email != email {
