@@ -1,0 +1,88 @@
+services:
+  redis:
+    image: redis/redis-stack-server:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./redis-data:/data
+      - ./redis-conf/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    environment:
+      - TZ=UTC
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - pythia_net
+  sso:
+    build: .
+    depends_on:
+      sso_migrate:
+        condition: service_completed_successfully
+    environment:
+      - GRPC_PORT=9081
+      - LOGGER_ENV=local
+      - DB_USER=postgres
+      - DB_PASS=1234
+      - DB_HOST=sso_db
+      - DB_PORT=5432
+      - DB_NAME=ssodb
+      - CONFIG_PATH=./config/dev.yaml
+    env_file:
+      - .env
+    ports:
+      - "9081:9081"
+    volumes:
+      - ./config:/app/config/:ro
+    networks:
+      - pythia_net
+
+  sso_db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_DB: ssodb
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d ssodb" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "5433:5432"
+    volumes:
+      - sso_db_data:/var/lib/postgresql/data
+    networks:
+      - pythia_net
+
+  sso_migrate:
+    image: migrate/migrate:4
+    depends_on:
+      sso_db:
+        condition: service_healthy
+    volumes:
+      - ./migrations:/migrations
+    restart: on-failure
+    command:
+      [
+        "-path", "/migrations",
+        "-database",
+        "postgres://postgres:1234@sso_db:5432/ssodb?sslmode=disable",
+        "up"
+      ]
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d gogrix" ]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+    networks:
+      - pythia_net
+
+networks:
+  pythia_net:
+    driver: bridge
+
+volumes:
+  sso_db_data:
