@@ -278,12 +278,21 @@ func (a *Auth) CreateNewPassword(
 func (a *Auth) Logout(ctx context.Context, refreshToken string) error {
 	const op = "auth.Logout"
 
+	log := slog.With(
+		slog.String("refresh_token", refreshToken),
+	)
+
 	if err := a.refreshTokenProvider.MarkUsed(ctx, refreshToken); err != nil {
-		a.log.Error("failed to mark old ref token used")
+		if errors.Is(err, domainerrors.ErrInvalidToken) {
+			log.Warn("invalid token")
+			return fmt.Errorf("%s:%w", op, domainerrors.ErrInvalidToken)
+		}
+
+		log.Error("failed to mark old ref token used")
 		return fmt.Errorf("%s:%w", op, err)
 	}
 
-	a.log.Info("logged out")
+	log.Info("logged out")
 	return nil
 }
 
