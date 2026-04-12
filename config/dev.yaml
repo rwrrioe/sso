@@ -4,7 +4,7 @@ logger_type: local
 redis:
   address: "localhost:6379"
   password: ""
-  db: 0
+  db: 1
   protocol: 2
 
 resend:
