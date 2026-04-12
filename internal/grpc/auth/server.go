@@ -162,6 +162,25 @@ func (s *serverAPI) RegenerateToken(
 	}, nil
 }
 
+func (s *serverAPI) LogOut(
+	ctx context.Context,
+	req *ssov3.LogoutRequest,
+) (*ssov3.LogoutResponse, error) {
+	if req.RefToken == "" {
+		return nil, status.Error(codes.InvalidArgument, "refresh token is required")
+	}
+
+	if err := s.auth.Logout(ctx, req.RefToken); err != nil {
+		if errors.Is(err, domainerrors.ErrInvalidToken) {
+			return nil, status.Error(codes.InvalidArgument, "invalid reset token")
+		}
+
+		return nil, status.Error(codes.Internal, "failed to logout")
+	}
+
+	return &ssov3.LogoutResponse{}, nil
+}
+
 // reset password flow
 
 func (s *serverAPI) SendResetCode(
