@@ -19,6 +19,7 @@ type serverAPI struct {
 	auth Auth
 	code Code
 	ssov3.UnimplementedAuthServer
+	ssov3.UnimplementedCodeServer
 }
 
 type Auth interface {
@@ -71,6 +72,10 @@ func Register(
 	ssov3.RegisterAuthServer(
 		gGRPCServer, &serverAPI{
 			auth: auth,
+		})
+
+	ssov3.RegisterCodeServer(
+		gGRPCServer, &serverAPI{
 			code: code,
 		})
 }
@@ -80,24 +85,24 @@ func (s *serverAPI) Login(
 	req *ssov3.LoginRequest,
 ) (*ssov3.LoginResponse, error) {
 	if req.Email == "" {
-		return nil, status.Error(codes.InvalidArgument, "email is required")
+		return nil, EmptyEmail.Err()
 	}
 
 	if req.Password == "" {
-		return nil, status.Error(codes.InvalidArgument, "password is required")
+		return nil, EmptyPassword.Err()
 	}
 
 	if req.GetAppId() == 0 {
-		return nil, status.Error(codes.InvalidArgument, "app_id is required")
+		return nil, EmptyAppID.Err()
 	}
 
 	tokenPair, err := s.auth.Login(ctx, req.GetEmail(), req.GetPassword(), int(req.GetAppId()))
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrInvalidCredentials) {
-			return nil, status.Error(codes.InvalidArgument, "invalid email or password")
+			return nil, InvalidCredentials.Err()
 		}
 
-		return nil, status.Error(codes.Internal, "failed to login")
+		return nil, LoginFailed.Err()
 	}
 
 	return &ssov3.LoginResponse{
@@ -111,20 +116,20 @@ func (s *serverAPI) Register(
 	req *ssov3.RegisterRequest,
 ) (*ssov3.RegisterResponse, error) {
 	if req.Email == "" {
-		return nil, status.Error(codes.InvalidArgument, "email is required")
+		return nil, EmptyEmail.Err()
 	}
 
 	if req.Password == "" {
-		return nil, status.Error(codes.InvalidArgument, "password is required")
+		return nil, EmptyPassword.Err()
 	}
 
 	uid, err := s.auth.RegisterNewUser(ctx, req.GetEmail(), req.GetPassword())
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrUserExists) {
-			return nil, status.Error(codes.AlreadyExists, "user already exists")
+			return nil, UserAlreadyExists.Err()
 		}
 
-		return nil, status.Error(codes.Internal, "failed to register user")
+		return nil, RegisterFailed.Err()
 	}
 
 	return &ssov3.RegisterResponse{UserId: uid.String()}, nil
@@ -136,21 +141,21 @@ func (s *serverAPI) RegenerateToken(
 ) (*ssov3.RegenerateTokenResponse, error) {
 
 	if req.RefToken == "" {
-		return nil, status.Error(codes.InvalidArgument, "refresh token is required")
+		return nil, EmptyRefreshToken.Err()
 	}
 
 	tokenPair, err := s.auth.RegenerateToken(ctx, req.RefToken)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrInvalidToken) {
-			return nil, status.Error(codes.InvalidArgument, "invalid refresh token")
+			return nil, InvalidRefreshToken.Err()
 		}
 
 		if errors.Is(err, domainerrors.ErrAppNotFound) {
-			return nil, status.Error(codes.NotFound, "app not found")
+			return nil, AppNotFound.Err()
 		}
 
 		if errors.Is(err, domainerrors.ErrTokenExpired) {
-			return nil, status.Error(codes.InvalidArgument, "token is expired")
+			return nil, TokenExpired.Err()
 		}
 
 		return nil, status.Error(codes.Internal, err.Error())
@@ -162,20 +167,20 @@ func (s *serverAPI) RegenerateToken(
 	}, nil
 }
 
-func (s *serverAPI) LogOut(
+func (s *serverAPI) Logout(
 	ctx context.Context,
 	req *ssov3.LogoutRequest,
 ) (*ssov3.LogoutResponse, error) {
 	if req.RefToken == "" {
-		return nil, status.Error(codes.InvalidArgument, "refresh token is required")
+		return nil, EmptyRefreshToken.Err()
 	}
 
 	if err := s.auth.Logout(ctx, req.RefToken); err != nil {
 		if errors.Is(err, domainerrors.ErrInvalidToken) {
-			return nil, status.Error(codes.InvalidArgument, "invalid reset token")
+			return nil, InvalidResetToken.Err()
 		}
 
-		return nil, status.Error(codes.Internal, "failed to logout")
+		return nil, LogoutFailed.Err()
 	}
 
 	return &ssov3.LogoutResponse{}, nil
@@ -183,49 +188,49 @@ func (s *serverAPI) LogOut(
 
 // reset password flow
 
-func (s *serverAPI) SendResetCode(
+func (s *serverAPI) SendCode(
 	ctx context.Context,
 	req *ssov3.SendCodeRequest,
 ) (*ssov3.SendCodeResponse, error) {
 	if req.Email == "" {
-		return nil, status.Error(codes.InvalidArgument, "email is required")
+		return nil, EmptyEmail.Err()
 	}
 
 	if err := s.code.SendCode(ctx, req.Email, &code.Options{
 		CodeType: code.TypeResetCode}); err != nil {
 		if errors.Is(err, domainerrors.ErrUserNotFound) {
-			return nil, status.Error(codes.NotFound, "user not found")
+			return nil, UserNotFound.Err()
 		}
 
-		return nil, status.Error(codes.Internal, "failed to send the code")
+		return nil, SendCodeFailed.Err()
 	}
 
 	return &ssov3.SendCodeResponse{}, nil
 }
 
-func (s *serverAPI) VerifyResetCode(
+func (s *serverAPI) VerifyCode(
 	ctx context.Context,
 	req *ssov3.VerifyCodeRequest,
 ) (*ssov3.VerifyCodeResponse, error) {
 	if req.Email == "" {
-		return nil, status.Error(codes.InvalidArgument, "email is required")
+		return nil, EmptyEmail.Err()
 	}
 
 	if req.Code == "" {
-		return nil, status.Error(codes.InvalidArgument, "reset code is required")
+		return nil, EmptyCode.Err()
 	}
 
 	if err := s.code.VerifyCode(ctx, req.Code); err != nil {
 		if errors.Is(err, domainerrors.ErrInvalidCode) {
-			return nil, status.Error(codes.InvalidArgument, "invalid reset code")
+			return nil, InvalidCode.Err()
 		}
 
 		if errors.Is(err, domainerrors.ErrCodeAlreadyUsed) {
-			return nil, status.Error(codes.InvalidArgument, "reset code already used")
+			return nil, CodeAlreadyUsed.Err()
 		}
 
 		if errors.Is(err, domainerrors.ErrCodeExpired) {
-			return nil, status.Error(codes.InvalidArgument, "reset code expired")
+			return nil, CodeExpired.Err()
 		}
 
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -233,7 +238,7 @@ func (s *serverAPI) VerifyResetCode(
 
 	resetToken, err := s.auth.GenerateResetToken(ctx, req.Email)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "failed to generate reset token")
+		return nil, GenerateResetTokenFailed.Err()
 	}
 
 	return &ssov3.VerifyCodeResponse{
@@ -248,14 +253,14 @@ func (s *serverAPI) CreateNewPassword(
 
 	if err := s.auth.CreateNewPassword(ctx, req.ResetToken, req.Password, req.Email); err != nil {
 		if errors.Is(err, domainerrors.ErrInvalidResetToken) {
-			return nil, status.Error(codes.InvalidArgument, "invalid reset token")
+			return nil, InvalidResetToken.Err()
 		}
 
 		if errors.Is(err, domainerrors.ErrResetTokenAlreadyUsed) {
-			return nil, status.Error(codes.InvalidArgument, "reset token already used")
+			return nil, ResetTokenAlreadyUsed.Err()
 		}
 
-		return nil, status.Error(codes.Internal, "failed to create password")
+		return nil, CreatePasswordFailed.Err()
 	}
 
 	return &ssov3.CreateNewPasswordResponse{}, nil
@@ -270,7 +275,7 @@ func (s *serverAPI) IsAdmin(
 	const op = "auth.serverAPI.IsAdmin"
 
 	if in.UserId == "" {
-		return nil, status.Error(codes.InvalidArgument, "user_id is empty")
+		return nil, EmptyUserID.Err()
 	}
 
 	uid, err := uuid.Parse(in.UserId)
@@ -281,9 +286,9 @@ func (s *serverAPI) IsAdmin(
 	isAdmin, err := s.auth.IsAdmin(ctx, uid)
 	if err != nil {
 		if errors.Is(err, domainerrors.ErrUserNotFound) {
-			return nil, status.Error(codes.NotFound, "user not found")
+			return nil, UserNotFound.Err()
 		}
-		return nil, status.Error(codes.Internal, "failed to check whether the user is admin")
+		return nil, IsAdminFailed.Err()
 	}
 
 	return &ssov3.IsAdminResponse{IsAdmin: isAdmin}, nil
