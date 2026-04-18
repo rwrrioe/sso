@@ -97,7 +97,7 @@ func (c *Code) SendCode(
 }
 
 func (c *Code) VerifyCode(ctx context.Context, code string) error {
-	const op = "auth.VerifyResetCode"
+	const op = "auth.VerifyCode"
 
 	codeHash := hashCode(code)
 
